@@ -81,10 +81,10 @@ func (v *Volume) InitWithVolfile(volname, volfile string) int {
 // Mount establishes a 'virtual mount.' Mount must be called after Init and
 // before storage operations. Steps taken:
 //
-//  - Spawn a poll-loop thread.
-//  - Establish connection to management daemon (volfile server) and receive volume specification (volfile).
-//  - Construct translator graph and initialize graph.
-//  - Wait for initialization (connecting to all bricks) to complete.
+//   - Spawn a poll-loop thread.
+//   - Establish connection to management daemon (volfile server) and receive volume specification (volfile).
+//   - Construct translator graph and initialize graph.
+//   - Wait for initialization (connecting to all bricks) to complete.
 //
 // Source: glfs.h
 func (v *Volume) Mount() error {
@@ -177,7 +177,7 @@ func (v *Volume) Create(name string) (*File, error) {
 	cfd, err := C.glfs_creat(v.fs, cname, C.int(os.O_RDWR|os.O_CREATE|os.O_TRUNC), 0666)
 
 	if cfd == nil {
-		return nil, &os.PathError{"create", name, err}
+		return nil, &os.PathError{Op: "create", Path: name, Err: err}
 	}
 
 	return &File{name, Fd{cfd}, false}, nil
@@ -191,7 +191,7 @@ func (v *Volume) Unlink(path string) error {
 
 	ret, err := C.glfs_unlink(v.fs, cpath)
 	if int(ret) < 0 {
-		return &os.PathError{"unlink", path, err}
+		return &os.PathError{Op: "unlink", Path: path, Err: err}
 	}
 	return nil
 }
@@ -221,7 +221,7 @@ func (v *Volume) Mkdir(name string, perm os.FileMode) error {
 	ret, err := C.glfs_mkdir(v.fs, cname, C.mode_t(posixMode(perm)))
 
 	if ret != 0 {
-		return &os.PathError{"mkdir", name, err}
+		return &os.PathError{Op: "mkdir", Path: name, Err: err}
 	}
 	return nil
 }
@@ -237,7 +237,7 @@ func (v *Volume) Rmdir(path string) error {
 	ret, err := C.glfs_rmdir(v.fs, cpath)
 
 	if ret != 0 {
-		return &os.PathError{"rmdir", path, err}
+		return &os.PathError{Op: "rmdir", Path: path, Err: err}
 	}
 	return nil
 }
@@ -253,7 +253,7 @@ func (v *Volume) MkdirAll(path string, perm os.FileMode) error {
 		if dir.IsDir() {
 			return nil
 		}
-		return &os.PathError{"mkdir", path, syscall.ENOTDIR}
+		return &os.PathError{Op: "mkdir", Path: path, Err: syscall.ENOTDIR}
 	}
 
 	// Slow path: make sure parent exists and then call Mkdir for path.
@@ -314,7 +314,7 @@ func (v *Volume) Open(name string) (*File, error) {
 	}
 
 	if cfd == nil {
-		return nil, &os.PathError{"open", name, err}
+		return nil, &os.PathError{Op: "open", Path: name, Err: err}
 	}
 
 	return &File{name, Fd{cfd}, isDir}, nil
@@ -353,7 +353,7 @@ func (v *Volume) OpenFile(name string, flags int, perm os.FileMode) (*File, erro
 	}
 
 	if cfd == nil {
-		return nil, &os.PathError{"open", name, err}
+		return nil, &os.PathError{Op: "open", Path: name, Err: err}
 	}
 
 	return &File{name, Fd{cfd}, isDir}, nil
@@ -369,18 +369,19 @@ func (v *Volume) Stat(name string) (os.FileInfo, error) {
 	var stat syscall.Stat_t
 	ret, err := C.glfs_stat(v.fs, cname, (*C.struct_stat)(unsafe.Pointer(&stat)))
 	if int(ret) < 0 {
-		return nil, &os.PathError{"stat", name, err}
+		return nil, &os.PathError{Op: "stat", Path: name, Err: err}
 	}
 	return fileInfoFromStat(&stat, name), nil
 }
 
 // Truncate changes the size of the named file
 //
-// Returns an error on failure
+// # Returns an error on failure
 //
 // TODO: gfapi currently (20131120) has not implement glfs_truncate.
-//       Once it has been implemented, renable the commented out code
-//       or write own function to implement the functionality of glfs_truncate
+//
+//	Once it has been implemented, renable the commented out code
+//	or write own function to implement the functionality of glfs_truncate
 func (v *Volume) Truncate(name string, size int64) error {
 	// cname := C.CString(name)
 	// defer C.free(unsafe.Pointer(cname))

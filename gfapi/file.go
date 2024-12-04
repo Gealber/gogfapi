@@ -75,7 +75,7 @@ func (f *File) Read(b []byte) (n int, err error) {
 		return 0, io.EOF
 	}
 	if e != nil {
-		err = &os.PathError{"read", f.name, e}
+		err = &os.PathError{Op: "read", Path: f.name, Err: e}
 	}
 	return n, err
 }
@@ -83,8 +83,8 @@ func (f *File) Read(b []byte) (n int, err error) {
 // ReadAt reads atmost len(b) bytes into b starting from offset off
 //
 // Returns number of bytes read and an error if any
-func (f *File) ReadAt(b []byte, off int64) (int, error) {
-	return f.Fd.Pread(b, off)
+func (f *File) ReadAt(b []byte, off int64, poststat *Stat) (int, error) {
+	return f.Fd.Pread(b, off, poststat.ToGlfsStat())
 }
 
 // Readdir returns the information of files in a directory.
@@ -127,15 +127,15 @@ func (f *File) Stat() (os.FileInfo, error) {
 // Sync commits the file to the storage
 //
 // Returns error on failure
-func (f *File) Sync() error {
-	return f.Fd.Fsync()
+func (f *File) Sync(prestat, poststat *Stat) error {
+	return f.Fd.Fsync(prestat.ToGlfsStat(), poststat.ToGlfsStat())
 }
 
 // Truncate changes the size of the file
 //
 // Returns error on failure
-func (f *File) Truncate(size int64) error {
-	return f.Fd.Ftruncate(size)
+func (f *File) Truncate(size int64, prestat, poststat *Stat) error {
+	return f.Fd.Ftruncate(size, prestat.ToGlfsStat(), poststat.ToGlfsStat())
 }
 
 // Write writes len(b) bytes to the file
@@ -151,7 +151,7 @@ func (f *File) Write(b []byte) (n int, err error) {
 		err = io.ErrShortWrite
 	}
 	if e != nil {
-		err = &os.PathError{"write", f.name, e}
+		err = &os.PathError{Op: "write", Path: f.name, Err: e}
 	}
 	return n, err
 }
@@ -159,8 +159,8 @@ func (f *File) Write(b []byte) (n int, err error) {
 // WriteAt writes len(b) bytes to the file starting at offset off
 //
 // Returns number of bytes written and an error if any
-func (f *File) WriteAt(b []byte, off int64) (int, error) {
-	return f.Fd.Pwrite(b, off)
+func (f *File) WriteAt(b []byte, off int64, prestat, poststat *Stat) (int, error) {
+	return f.Fd.Pwrite(b, off, prestat.ToGlfsStat(), poststat.ToGlfsStat())
 }
 
 // WriteString writes the contents of string s to the file
