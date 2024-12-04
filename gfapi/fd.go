@@ -10,12 +10,87 @@ import "C"
 import (
 	"os"
 	"syscall"
+	"time"
 	"unsafe"
 )
 
 // Fd is the glusterfs fd type
 type Fd struct {
 	fd *C.glfs_fd_t
+}
+
+type Stat struct {
+	// What results were written [uncond]
+	mask uint64
+	// Flags conveying information about the file [uncond]
+	attributes uint64
+	// Mask to show what's supported in st_attributes [ucond]
+	attributesMask uint64
+	// Last access time
+	atime time.Time
+	// File creation time
+	btime time.Time
+	// Last attribute change time
+	ctime time.Time
+	// Last data modification time
+	mtime time.Time
+	// Inode number
+	ino uint64
+	// File size
+	size int64
+	// Number of 512-byte blocks allocated
+	blocks uint64
+	// Device ID of special file [if bdev/cdev]
+	rdevMajor uint32
+	rdevMinor uint32
+	// ID of device containing file [uncond]
+	devMajor uint32
+	devMinor uint32
+	// Preferred general I/O size [uncond]
+	blkksize int64
+	// Number of hard links
+	nlink uint64
+	// User ID of owner
+	uid uint32
+	// Group ID of owner
+	gid uint32
+	// File mode
+	mode uint32
+}
+
+func (s *Stat) ToGlfsStat() *C.struct_glfs_stat {
+	if s == nil {
+		return nil
+	}
+
+	return &C.struct_glfs_stat{
+		glfs_st_mask:            C.ulong(s.mask),
+		glfs_st_attributes:      C.ulong(s.attributes),
+		glfs_st_attributes_mask: C.ulong(s.attributesMask),
+		glfs_st_atime: C.struct_timespec{
+			tv_sec:  C.__time_t(s.atime.Unix()),
+			tv_nsec: C.__syscall_slong_t(s.atime.Nanosecond()),
+		},
+		glfs_st_btime: C.struct_timespec{
+			tv_sec:  C.__time_t(s.btime.Unix()),
+			tv_nsec: C.__syscall_slong_t(s.btime.Nanosecond()),
+		},
+		glfs_st_ctime: C.struct_timespec{
+			tv_sec:  C.__time_t(s.ctime.Unix()),
+			tv_nsec: C.__syscall_slong_t(s.ctime.Nanosecond()),
+		},
+		glfs_st_ino:        C.ulong(s.ino),
+		glfs_st_size:       C.long(s.size),
+		glfs_st_blocks:     C.long(s.blocks),
+		glfs_st_rdev_major: C.uint(s.rdevMajor),
+		glfs_st_rdev_minor: C.uint(s.rdevMinor),
+		glfs_st_dev_major:  C.uint(s.devMajor),
+		glfs_st_dev_minor:  C.uint(s.devMinor),
+		glfs_st_nlink:      C.ulong(s.nlink),
+		glfs_st_uid:        C.uint(s.uid),
+		glfs_st_gid:        C.uint(s.gid),
+		glfs_st_mode:       C.uint(s.mode),
+	}
 }
 
 var _zero uintptr
@@ -44,8 +119,8 @@ func (fd *Fd) Fstat(stat *syscall.Stat_t) error {
 // Fsync performs an fsync on the Fd
 //
 // Returns error on failure
-func (fd *Fd) Fsync() error {
-	ret, err := C.glfs_fsync(fd.fd)
+func (fd *Fd) Fsync(prestat, poststat *C.struct_glfs_stat) error {
+	ret, err := C.glfs_fsync(fd.fd, prestat, poststat)
 	if ret < 0 {
 		return err
 	}
@@ -55,8 +130,8 @@ func (fd *Fd) Fsync() error {
 // Ftruncate truncates the size of the Fd to the given size
 //
 // Returns error on failure
-func (fd *Fd) Ftruncate(size int64) error {
-	_, err := C.glfs_ftruncate(fd.fd, C.off_t(size))
+func (fd *Fd) Ftruncate(size int64, prestat, poststat *C.struct_glfs_stat) error {
+	_, err := C.glfs_ftruncate(fd.fd, C.off_t(size), prestat, poststat)
 
 	return err
 }
@@ -64,8 +139,8 @@ func (fd *Fd) Ftruncate(size int64) error {
 // Pread reads at most len(b) bytes into b from offset off in Fd
 //
 // Returns number of bytes read on success and error on failure
-func (fd *Fd) Pread(b []byte, off int64) (int, error) {
-	n, err := C.glfs_pread(fd.fd, unsafe.Pointer(&b[0]), C.size_t(len(b)), C.off_t(off), 0)
+func (fd *Fd) Pread(b []byte, off int64, poststat *C.struct_glfs_stat) (int, error) {
+	n, err := C.glfs_pread(fd.fd, unsafe.Pointer(&b[0]), C.size_t(len(b)), C.off_t(off), 0, poststat)
 
 	return int(n), err
 }
@@ -73,8 +148,8 @@ func (fd *Fd) Pread(b []byte, off int64) (int, error) {
 // Pwrite writes len(b) bytes from b into the Fd from offset off
 //
 // Returns number of bytes written on success and error on failure
-func (fd *Fd) Pwrite(b []byte, off int64) (int, error) {
-	n, err := C.glfs_pwrite(fd.fd, unsafe.Pointer(&b[0]), C.size_t(len(b)), C.off_t(off), 0)
+func (fd *Fd) Pwrite(b []byte, off int64, prestat, poststat *C.struct_glfs_stat) (int, error) {
+	n, err := C.glfs_pwrite(fd.fd, unsafe.Pointer(&b[0]), C.size_t(len(b)), C.off_t(off), 0, prestat, poststat)
 
 	return int(n), err
 }
