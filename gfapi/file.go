@@ -3,6 +3,7 @@ package gfapi
 // This file includes higher level operations on files, such as those provided by the 'os' package
 
 // #cgo pkg-config: glusterfs-api
+// #cgo LDFLAGS: -lgfapi -lglusterfs -lgfrpc -lgfxdr
 // #include "glusterfs/api/glfs.h"
 // #include <stdlib.h>
 // #include <sys/stat.h>
