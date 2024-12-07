@@ -9,6 +9,8 @@ package gfapi
 // - Mac OS X
 
 // #cgo pkg-config: glusterfs-api
+// #cgo CFLAGS: -I/usr/include
+// #cgo LDFLAGS: -lgfapi -lglusterfs -lgfrpc -lgfxdr
 // #include "glusterfs/api/glfs.h"
 // #include <stdlib.h>
 // #include <sys/stat.h>
